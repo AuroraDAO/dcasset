@@ -1,0 +1,16 @@
+# dcasset
+
+This repository contains the latest revision of the DCAsset contract system. The source code of the live contracts is also verified on [http://etherscan.io](http://etherscan.io). Refer to [http://decentralized.com/](the Decentralized Capital website) for the contract addresses (token addresses are visible after log-in).
+
+## High-level overview
+
+The primary aim of DCAsset is to establish a token on the blockchain such that risk can be mitigated across a distributed system of trust. Each contract in the network has administrative controls which require 2 signatures from a set of trusted keys which can be set by the contract owner prior to the "lock" event. The backend is upgradeable, and the frontend fully adheres to the Ethereum token standard. Minted tokens appear in a multisig "HotWallet" and transfers from this contract must be approved ahead of time by the "Oversight" contract. In addition, the Oversight contract can approve addresses which are authorized to shut down transactions in the event of a breach.
+
+## Authors
+
+Raymond Pulver
+Peter Reitsma
+
+## License
+
+MIT
