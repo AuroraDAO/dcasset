@@ -8,7 +8,7 @@ The primary aim of DCAsset is to establish a token on the blockchain such that r
 
 ## Authors
 
-Raymond Pulver
+Raymond Pulver (@raypulver)
 
 Peter Reitsma
 
