@@ -1,6 +1,6 @@
 # dcasset
 
-This repository contains the latest revision of the DCAsset contract system. The source code of the live contracts is also verified on [http://etherscan.io](http://etherscan.io). Refer to [http://decentralized.com](http://decentralized.com) for the contract addresses (token addresses are available via link in Website footer).
+This repository contains the latest revision of the DCAsset contract system. The source code of the live contracts is also verified on [http://etherscan.io](http://etherscan.io). Refer to [http://decentralized.com](http://decentralized.com) for the contract addresses (token addresses are available via [this link](https://www.decentralizedcapital.com/#/tokens)).
 
 ## High-level overview
 
