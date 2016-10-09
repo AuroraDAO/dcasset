@@ -20,10 +20,11 @@ contract DVIP is Token, StateTransferrable, TrustClient, Util {
   address[] public accountIndex;
   mapping (address => bool) public accountActive;
   address public oversightAddress;
-  mapping (address => bool) public authorizedVendors;
   uint256 public expiry;
-
+  uint8 public feeDecimals;
+  mapping (address => uint256) public validAfter;
   uint256 public treasuryBalance;
+  uint256 public mustHoldFor;
 
   bool public isActive;
   mapping (address => uint256) public exportFee;
@@ -50,9 +51,11 @@ contract DVIP is Token, StateTransferrable, TrustClient, Util {
     totalSupply = 0;
     name = "DVIP";
     symbol = "DVIP";
-    decimals = 6;
+    decimals = 0;
+    feeDecimals = 6;
     allowTransactions = true;
     expiry = 1514764800; //1 jan 2018
+    mustHoldFor = 86400;
   }
 
 
@@ -205,21 +208,15 @@ contract DVIP is Token, StateTransferrable, TrustClient, Util {
     assert(allowTransactions);
     assert(!frozenAccount[msg.sender]);
     assert(balanceOf[msg.sender] >= _amount);
-    uint256 pointZeroOne;
-    if (!authorizedVendors[msg.sender]) {
-      pointZeroOne = pow10(1, decimals - 2);
-      assert(balanceOf[msg.sender] >= pointZeroOne);
-    }
     assert(balanceOf[_to] + _amount >= balanceOf[_to]);
     activateAccount(msg.sender);
     activateAccount(_to);
     balanceOf[msg.sender] -= _amount;
+    uint256 preBalance = balanceOf[_to];
     if (_to == address(this)) treasuryBalance += _amount;
-    else if (!authorizedVendors[msg.sender]) {
-      balanceOf[_to] += _amount - pointZeroOne;
-      treasuryBalance += pointZeroOne;
-    } else {
-      balanceOf[_to] += _amount;
+    else balanceOf[_to] += _amount;
+    if (preBalance <= 1 && balanceOf[_to] >= 1) {
+      validAfter[_to] = now + mustHoldFor;
     }
     Transfer(msg.sender, _to, _amount);
     return true;
@@ -239,20 +236,14 @@ contract DVIP is Token, StateTransferrable, TrustClient, Util {
     assert(!frozenAccount[_from]);
     assert(balanceOf[_from] >= _amount);
     assert(balanceOf[_to] + _amount >= balanceOf[_to]);
-    uint256 pointZeroOne;
-    if (!authorizedVendors[_from]) {
-      pointZeroOne = pow10(1, decimals - 2);
-      assert(balanceOf[_from] >= pointZeroOne);
-    }
     assert(_amount <= allowance[_from][msg.sender]);
     balanceOf[_from] -= _amount;
-    if (!authorizedVendors[_from]) {
-      balanceOf[_to] += _amount - pointZeroOne;
-      treasuryBalance += pointZeroOne;
-    } else {
-      balanceOf[_to] += _amount;
-    }
+    uint256 preBalance = balanceOf[_to];
+    balanceOf[_to] += _amount;
     allowance[_from][msg.sender] -= _amount;
+    if (balanceOf[_to] >= 1 && preBalance <= 1) {
+      validAfter[_to] = now + mustHoldFor;
+    }
     activateAccount(_from);
     activateAccount(_to);
     activateAccount(msg.sender);
@@ -313,10 +304,6 @@ contract DVIP is Token, StateTransferrable, TrustClient, Util {
     expiry = ts;
   }
 
-  function setAuthorizedVendor(address addr, bool authorized) multisig(sha3(msg.data)) {
-    authorizedVendors[addr] = authorized;
-  }
-
   /**
    * @notice Mints `mintedAmount` new tokens to the hotwallet `hotWalletAddress`.
    *
@@ -347,7 +334,11 @@ contract DVIP is Token, StateTransferrable, TrustClient, Util {
   function transferFromTreasury(address to, uint256 amount) multisig(sha3(msg.data)) {
     assert(treasuryBalance >= amount);
     treasuryBalance -= amount;
+    uint256 preBalance = balanceOf[to];
     balanceOf[to] += amount;
+    if (balanceOf[to] >= 1 && preBalance < 1) {
+      validAfter[to] = now + mustHoldFor;
+    }
     activateAccount(to);
   }
 
@@ -362,7 +353,7 @@ contract DVIP is Token, StateTransferrable, TrustClient, Util {
    */
   function setExportFee(address addr, uint256 fee) multisig(sha3(msg.data)) {
     uint256 max = 1;
-    max = pow10(1, decimals);
+    max = pow10(1, feeDecimals);
     assert(fee <= max);
     exportFee[addr] = fee;
     activateExportFeeChargeRecord(addr);
@@ -414,6 +405,10 @@ contract DVIP is Token, StateTransferrable, TrustClient, Util {
     treasuryBalance += amount;
   }
 
+  function setHoldingPeriod(uint256 ts) multisig(sha3(msg.data)) {
+    mustHoldFor = ts;
+  }
+
   /* --------------- fee calculation method ---------------- */
 
 
@@ -441,16 +436,18 @@ contract DVIP is Token, StateTransferrable, TrustClient, Util {
     uint256 amountHeld;
     bool discounted = true;
     uint256 oneDVIPUnit;
-    if (exportFee[from] == 0 && balanceOf[from] != 0 && now < expiry) {
+    if (exportFee[from] == 0 && balanceOf[from] != 0 && now < expiry && validAfter[from] <= now) {
       amountHeld = balanceOf[from];
+    } else if (balanceOf[to] != 0 && now < expiry && validAfter[to] <= now) {
+      amountHeld = balanceOf[to];
     } else discounted = false;
     if (discounted) {
       oneDVIPUnit = pow10(1, decimals);
       if (amountHeld > oneDVIPUnit) amountHeld = oneDVIPUnit;
       uint256 remaining = oneDVIPUnit - amountHeld;
-      return div10(amount*fee*remaining, decimals*2);
+      return div10(amount*fee*remaining, feeDecimals + decimals);
     }
-    return div10(amount*fee, decimals);
+    return div10(amount*fee, feeDecimals);
   }
 
   /* ---------------  overseer methods for emergency --------------*/
